@@ -1,0 +1,79 @@
+# Quest 3 -> UR5e teleop bridge configuration.
+# Override any key on the command line, e.g.  --robot.ip 192.168.1.10 --mapping.pos_scale 0.5
+
+source:
+  type: webxr              # webxr | oculus_reader | replay
+  # webxr
+  port: 8765
+  tls: true
+  qr: true                 # print the headset URL as a QR code at start (also saved to qr/quest_url.png)
+  cam_proxy: http://127.0.0.1:5561   # Isaac overlay cameras (/cam/<name>.jpg) are fetched from here and re-served to the headset
+  # oculus_reader
+  ip_address: ""           # empty = USB adb; or headset IP after `adb tcpip 5555`
+  adb_path: "C:/Users/USER/AppData/Local/Android/Sdk/platform-tools/adb.exe"
+  keep_awake: true         # adb broadcast so tracking keeps running with the headset taken off
+  # replay
+  path: ""
+
+robot:
+  type: dummy              # dummy | ur_rtde | isaac
+  ip: 192.168.1.10
+  # isaac: isaac/ur5e_sim.py server (python tools/isaac_sim.py --headless)
+  host: 127.0.0.1
+  port: 5560
+  frequency: 125           # servoL rate (Hz). e-series supports up to 500
+  lookahead: 0.1           # s, servoL look-ahead (0.03..0.2)
+  gain: 300                # servoL proportional gain (100..2000)
+  auto_power: false        # power on + brake release via Dashboard (URSim convenience)
+  speed_slider: 1.0
+
+gripper:
+  type: none               # none | robotiq_urcap | isaac   (none + robot.type isaac -> isaac automatically)
+  ip: 192.168.1.10
+  port: 63352
+
+mapping:
+  hand: right              # which controller drives the arm
+  operator_yaw_deg: 0      # rotate the operator "forward" about robot Z (menu "보정" sets this)
+  pos_scale: 1.0
+  rot_enabled: true
+  clutch: grip             # grip | trigger | always   (grip = middle-finger button, hold to move)
+  clutch_threshold: 0.5
+  clutch_toggle: false
+  pos_filter_alpha: 0.35
+  rot_filter_alpha: 0.35
+  max_lin_speed: 0.25      # m/s
+  max_ang_speed: 1.0       # rad/s
+  workspace_min: [-0.80, -0.80, 0.02]
+  workspace_max: [ 0.80,  0.80, 0.80]
+  max_reach: 0.85
+  min_reach: 0.15
+  stale_timeout: 0.3       # s without a new controller sample -> hold
+  # axis locks (also toggled at runtime from the menu / monitor page)
+  lock_x: false
+  lock_y: false
+  lock_z: false
+  lock_rot: false
+  # relative = ratchet (re-grip anywhere, no jump).  absolute = hand pose relative to the
+  # calibrated neutral pose maps to the TCP relative to tcp_center (needs "보정" step 2).
+  mode: relative
+  # center_xr: {p: [x, y, z], q: [x, y, z, w]}     written by the calibration flow
+  # tcp_center: [x, y, z, rx, ry, rz]
+  # r_map: 3x3 row-major list; omit to use the default (see mapping.py) or run the 3-gesture calibration
+  # r_map: [[0,0,-1],[-1,0,0],[0,1,0]]
+
+buttons:
+  rot_toggle: none         # A opens the options menu (headset); rotation following is a menu item. primary = old behaviour
+  soft_stop: secondary     # B: disengage + servoStop until released
+
+ui:
+  mode: auto               # auto | headless | hmd.  auto: head still for head_still_s -> headless
+  head_still_s: 3.0
+  head_still_m: 0.02
+  head_still_deg: 3.0
+  monitor: auto            # serve web/monitor.html (status + commands) when the source is not webxr
+  monitor_port: 8765
+  monitor_tls: true
+
+recording:
+  dir: runs                # menu "녹화" writes runs/rec_YYYYmmdd_HHMMSS.jsonl (controller + TCP + gripper)

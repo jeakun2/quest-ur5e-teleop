@@ -1,0 +1,9 @@
+ur-rtde>=1.6.5
+websockets>=13
+numpy
+scipy
+pyyaml
+pure-python-adb
+cryptography
+pytest
+vncdotool        # only for tools/ursim_enable_remote.py

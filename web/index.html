@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quest UR5e Teleop</title>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #111; color: #eee; }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  p { line-height: 1.5; }
+  button { font-size: 20px; padding: 14px 22px; margin: 6px 6px 6px 0; border-radius: 10px; border: 0;
+           background: #3b82f6; color: #fff; }
+  button:disabled { background: #444; color: #999; }
+  a { color: #93c5fd; }
+  #log { font-family: ui-monospace, monospace; font-size: 13px; white-space: pre-wrap; background: #000;
+         padding: 10px; border-radius: 8px; min-height: 120px; }
+  #view { width: 100%; height: 360px; background: #0b1220; border-radius: 8px; margin: 8px 0; display: none; }
+  #view.on { display: block; }
+  #view canvas { width: 100% !important; height: 100% !important; display: block; border-radius: 8px; }
+
+  /* ---------- overlay shown inside the headset (dom-overlay) ---------- */
+  #hud { position: fixed; left: 16px; top: 16px; width: 560px; max-width: calc(100vw - 32px); box-sizing: border-box;
+         padding: 12px 16px 12px; background: rgba(8, 12, 20, .72); border: 1px solid rgba(255,255,255,.08);
+         border-radius: 14px; font-size: 19px; line-height: 1.4; pointer-events: none; color: #e5e7eb;
+         backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+         max-height: calc(100vh - 32px); overflow: hidden; display: flex; flex-direction: column; }
+  #hud > * { flex: 0 0 auto; }
+  #hud[hidden], #hud-menu[hidden], #hud-flow[hidden], #hud-cams[hidden], #hud-cams figure[hidden] { display: none; }
+  #hud.xr #hud-menu { display: none; }   /* in a WebXR session the menu is the 3D panel by the controller */
+  #hud.xr ~ #hud-cams { display: none; } /* ... and the Isaac cameras are the 3D windows beside it (xrcams.js) */
+  #hud .state { font-weight: 800; font-size: 22px; letter-spacing: .01em; }
+  #hud .engaged { color: #4ade80; }
+  #hud .warn { color: #fbbf24; }
+  #hud .bad { color: #f87171; }
+  /* status header: small labelled chips in one row */
+  #hud .stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  #hud .stat { display: inline-flex; align-items: baseline; gap: 6px; padding: 2px 9px; border-radius: 8px;
+               background: rgba(255,255,255,.08); font-size: 15px; font-family: ui-monospace, monospace; white-space: nowrap; }
+  #hud .stat em { font-style: normal; color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
+                  font-family: system-ui, sans-serif; }
+  #hud .stat.tcp { flex-basis: 100%; }
+  #hud .stat.tcp b { font-weight: 600; letter-spacing: .02em; }
+  #hud .stat.net { color: #94a3b8; }
+  #hud .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  #hud .chips:not(:empty) { margin-top: 6px; }
+  #hud .chips span { display: inline-block; padding: 1px 8px; border-radius: 6px; background: #334155; font-size: 14px; }
+  #hud .chips .on { background: #b45309; }
+  #hud .chips .rec { background: #b91c1c; }
+  #hud .chips .ghost { background: #1e40af; }
+  #hud .msg { color: #93c5fd; font-size: 16px; }
+  #hud .msg:not(:empty) { margin-top: 6px; }
+
+  /* ---------- options menu ---------- */
+  #hud-menu { margin-top: 10px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 4px;
+              flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  #hud-menu .list { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+  #hud-menu .list::-webkit-scrollbar { display: none; }
+  #hud-menu .hint { flex: 0 0 auto; }
+  #hud-menu .grp { font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .08em;
+                   margin: 7px 0 1px 12px; }
+  #hud-menu .list > .grp:first-child { margin-top: 4px; }
+  #hud-menu .item { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 16px;
+                    padding: 3px 12px 3px 14px; border-radius: 8px; font-size: 18px; color: #e2e8f0; }
+  #hud-menu .item::before { content: ""; position: absolute; left: 2px; top: 6px; bottom: 6px; width: 4px;
+                            border-radius: 2px; background: transparent; }
+  #hud-menu .item.sel { background: rgba(59, 130, 246, .32); color: #fff; font-weight: 700; }
+  #hud-menu .item.sel::before { background: #60a5fa; }
+  #hud-menu .item .val { color: #cbd5e1; font-size: 15px; font-weight: 400; font-family: ui-monospace, monospace;
+                         white-space: nowrap; }
+  #hud-menu .item .val.pill { padding: 1px 9px; border-radius: 999px; font-family: system-ui, sans-serif; font-size: 14px;
+                              font-weight: 600; }
+  #hud-menu .item .val.pill.on { background: rgba(34, 197, 94, .22); color: #4ade80; border: 1px solid rgba(74, 222, 128, .5); }
+  #hud-menu .item .val.pill.off { background: rgba(148, 163, 184, .14); color: #94a3b8; border: 1px solid rgba(148, 163, 184, .35); }
+  #hud-menu .item.close { margin-top: 6px; border-top: 1px dashed rgba(255,255,255,.12); border-radius: 0 0 8px 8px; }
+  #hud-menu .hint { margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.12); color: #94a3b8;
+                    font-size: 14px; text-align: center; letter-spacing: .02em; }
+  #hud-menu .hint b { color: #e2e8f0; font-weight: 700; }
+
+  /* ---------- flow (tutorial / calibration steps) ---------- */
+  #hud-flow { margin-top: 10px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 6px; }
+  #hud-flow .title { font-weight: 700; color: #fbbf24; }
+  #hud-flow .line { margin-top: 3px; }
+
+  /* ---------- Isaac overlay cameras (2D, column on the right) ---------- */
+  #hud-cams { position: fixed; right: 16px; top: 16px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+  #hud-cams figure { position: relative; margin: 0; background: rgba(8, 12, 20, .72); border: 1px solid rgba(255,255,255,.08);
+                     border-radius: 12px; padding: 6px 6px 4px; }
+  #hud-cams .frame { position: relative; width: 320px; height: 240px; border-radius: 8px; overflow: hidden; background: #000; }
+  #hud-cams img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  #hud-cams .nf-msg { display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
+                      color: #64748b; font-size: 15px; letter-spacing: .08em; text-transform: uppercase;
+                      background: repeating-linear-gradient(135deg, #0b1220 0 10px, #0f172a 10px 20px); }
+  #hud-cams figure.nf img { visibility: hidden; }
+  #hud-cams figure.nf .nf-msg { display: flex; }
+  #hud-cams figcaption { display: flex; align-items: center; justify-content: space-between; color: #cbd5e1;
+                         font-size: 14px; padding: 4px 4px 0; }
+  #hud-cams .live { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700;
+                    letter-spacing: .1em; color: #f87171; }
+  #hud-cams .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #ef4444;
+                            box-shadow: 0 0 6px #ef4444; animation: hud-blink 1.2s ease-in-out infinite; }
+  #hud-cams figure.nf .live { color: #64748b; }
+  #hud-cams figure.nf .live::before { background: #64748b; box-shadow: none; animation: none; }
+  @keyframes hud-blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Quest 3 → UR5e teleop</h1>
+  <p>Quest 브라우저에서 이 페이지를 열고 <b>Start AR</b>(패스스루) 또는 <b>Start VR</b>을 누르세요.</p>
+  <p><b>기본 조작</b>(헤드셋을 벗어도 됨): 오른손 <b>그립(중지 버튼)</b>을 쥔 채 움직이면 로봇 TCP가 위치·회전을 그대로
+     따라옵니다. <b>트리거</b> = 그리퍼, <b>B</b> = 즉시 정지. 표시 좌표는 TCP(그리퍼 손끝 중심).<br>
+     <b>헤드셋 착용 시</b>: <b>A</b>(또는 썸스틱 클릭) → 옵션 메뉴(초기 자세로, 회전 추종, 튜토리얼, 보정, 축 고정, 녹화/재생,
+     배율, Isaac 카메라 오버레이(천장/사이드/EE), Isaac 시점 전환, 홀로그램, 경로 지우기). 스틱 위/아래로 이동, A 선택, B 닫기.<br>
+     <b>AR 홀로그램</b>: 처음 그립을 쥐면 반투명 UR5e가 툴을 손에 맞춰 나타나고 실제 관절 각도로 움직입니다.
+     그립 중 TCP 경로(하늘색)와 손 경로(주황)가 그려집니다. 메뉴 "홀로그램 손에 맞추기"로 다시 정렬.</p>
+  <div>
+    <button id="btn-ar">Start AR</button>
+    <button id="btn-vr">Start VR</button>
+    <button id="btn-test">2D test (mouse)</button>
+  </div>
+  <div id="view"></div>
+  <p id="ws-state">WebSocket: connecting…</p>
+  <p>PC용 모니터/제어 페이지: <a href="monitor.html">monitor.html</a>
+     (헤드셋을 벗고 쓸 때 상태 확인·축 고정·녹화를 여기서)</p>
+  <div id="log"></div>
+</main>
+<div id="hud" hidden>
+  <div class="state" id="hud-state">—</div>
+  <div class="stats">
+    <span class="stat"><em>mode</em><b id="hud-mode">–</b></span>
+    <span class="stat"><em>grip</em><b id="hud-grip">0%</b></span>
+    <span class="stat"><em>scale</em><b id="hud-scale">–</b></span>
+    <span class="stat"><em>rot</em><b id="hud-rot">–</b></span>
+    <span class="stat net"><em>send</em><b id="hud-rate">0 Hz</b><em>rtt</em><b id="hud-rtt">– ms</b></span>
+    <span class="stat tcp"><em>TCP</em><b id="hud-tcp">–</b></span>
+  </div>
+  <div class="chips" id="hud-chips"></div>
+  <div class="msg" id="hud-msg"></div>
+  <div id="hud-menu" hidden></div>
+  <div id="hud-flow" hidden></div>
+</div>
+<div id="hud-cams" hidden>
+  <figure data-cam="ceiling" hidden>
+    <div class="frame"><img alt="ceiling"><div class="nf-msg">no frame</div></div>
+    <figcaption><span>천장</span><span class="live">LIVE</span></figcaption>
+  </figure>
+  <figure data-cam="side" hidden>
+    <div class="frame"><img alt="side"><div class="nf-msg">no frame</div></div>
+    <figcaption><span>사이드</span><span class="live">LIVE</span></figcaption>
+  </figure>
+  <figure data-cam="ee" hidden>
+    <div class="frame"><img alt="ee"><div class="nf-msg">no frame</div></div>
+    <figcaption><span>EE</span><span class="live">LIVE</span></figcaption>
+  </figure>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

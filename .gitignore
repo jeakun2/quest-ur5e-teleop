@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.pytest_cache/
+certs/
+runs/
+qr/
+isaac/logs/
+third_party/
+*.pyc
+tools/allow_firewall.log
+tools/*.log
+tools/pktmon_8765.*
