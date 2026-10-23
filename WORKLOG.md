@@ -81,3 +81,4 @@
 - 추가(20:05): Wi-Fi 복구 — 핫스팟을 끄면 USB Wi-Fi 라디오가 꺼진 채 남아 0x80342002로 재접속 실패 → Windows.Devices.Radios API로 라디오 켜고 공유기 재접속(tools/hotspot.ps1 off에 포함). 공유기 게이트웨이는 핑에 응답하지 않아도 PC↔Quest(192.168.0.55) L2 통신은 됨.
 - 추가(20:50): Quest 3 실기 접속 확인 — 폰 핫스팟 LAN에서 https://<PC-IP>:8765, immersive-ar 세션 config #1(local-floor+dom-overlay) 통과, 메뉴 열림/조작 확인. 앞선 NotSupportedError는 그 전 세션이 끝나지 않은 상태의 재요청으로 추정. Isaac 메인 루프가 30분간 정지(소켓 스레드는 응답)하는 현상 1회 → 프로세스 재기동으로 해결, 루프 감시 필요.
 - 2026-10-21 22:30 Isaac 재기동이 대기열에서 바로 종료돼(server_gui19.log 1줄) 시뮬 미기동 상태로 사용자 요청에 따라 전체 종료. 브리지의 Isaac 링크가 끊기면(시뮬 멈춤·재시작) 2초마다 스스로 재접속하도록 isaac_robot.py 수정(+테스트) — 다음 세션부터는 시뮬만 다시 띄우면 브리지 재시작 불필요.
+- 2026-10-24 GitHub 공개 전환(https://github.com/jeakun2/quest-ur5e-teleop): README를 Isaac Sim(A)/실기(B) 두 트랙으로 재구성, 헤드셋 녹화 영상 대신 모니터 글자를 흐린 정지 컷 4장(docs/media) 사용(영상 자체는 개인정보 때문에 미업로드), 로컬 경로·대기열·공유기/핫스팟 이름 제거, MIT 라이선스. 공개 전 이력은 단일 커밋으로 압축(전체 이력은 로컬 브랜치 private-history).
